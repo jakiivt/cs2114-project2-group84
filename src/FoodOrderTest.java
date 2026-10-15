@@ -144,7 +144,7 @@ public class FoodOrderTest extends student.TestCase
     }
 
     
-    void testHashCode()
+    public void testHashCode()
     {
         Order order1 = new FoodOrder(42, 1, "Burger", 1000L);
         Order order2 = new FoodOrder(42, 5, "Pizza", 2000L);
