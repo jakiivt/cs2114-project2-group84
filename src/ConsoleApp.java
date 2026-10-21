@@ -14,15 +14,41 @@ public class ConsoleApp
      *
      * @param args unused command-line arguments
      */
+    /**
+     * Starts the application. Command-line arguments are ignored.
+     *
+     * @param args unused command-line arguments
+     */
     public static void main(String[] args)
     {
         ConsoleApp app = new ConsoleApp();
-        app.manager = new OrderManager(new Menu());
-        app.input = new Scanner(System.in);
         app.run();
     }
 
-    private void run()
+    /**
+     * Creates a console app with default manager and input.
+     */
+    public ConsoleApp()
+    {
+        this(new OrderManager(new Menu()), new Scanner(System.in));
+    }
+
+    /**
+     * Creates a console app with custom manager and input.
+     *
+     * @param manager the order manager
+     * @param input the input scanner
+     */
+    public ConsoleApp(OrderManager manager, Scanner input)
+    {
+        this.manager = manager;
+        this.input = input;
+    }
+
+    /**
+     * Runs the console command loop.
+     */
+    public void run()
     {
         boolean running = true;
 
@@ -112,8 +138,8 @@ public class ConsoleApp
     private boolean addOrder(boolean food)
     {
         System.out.println(food
-            ? "Food: burger, fries, salad"
-            : "Drinks: water, coffee, lemonade");
+            ? manager.getMenu().displayFood()
+            : manager.getMenu().displayDrinks());
 
         Integer table = readPositiveTable();
 
@@ -131,17 +157,25 @@ public class ConsoleApp
                 return false;
             }
 
+            String notes = readLine(
+                "Enter special instructions (optional, press Enter to skip): ");
+
+            if (notes == null)
+            {
+                return false;
+            }
+
             try
             {
                 Order order;
 
                 if (food)
                 {
-                    order = manager.addFood(table, item);
+                    order = manager.addFood(table, item, notes);
                 }
                 else
                 {
-                    order = manager.addDrink(table, item);
+                    order = manager.addDrink(table, item, notes);
                 }
 
                 showSuccess("Added", order);

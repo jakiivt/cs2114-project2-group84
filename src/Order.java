@@ -6,10 +6,11 @@ public abstract class Order
     private final int orderId;
     private final int tableNumber;
     private final String itemName;
+    private final String instructions;
     private final long createdAtMillis;
 
     /**
-     * Creates an order after validating its fields.
+     * Creates an order with no special instructions.
      *
      * @param id positive order ID
      * @param table positive table number
@@ -18,6 +19,26 @@ public abstract class Order
      * @throws IllegalArgumentException if any field is invalid
      */
     protected Order(int id, int table, String item, long creationTime)
+    {
+        this(id, table, item, "", creationTime);
+    }
+
+    /**
+     * Creates an order with optional special instructions.
+     *
+     * @param id positive order ID
+     * @param table positive table number
+     * @param item nonblank item name
+     * @param notes special instructions (null or empty for none, max 100 chars)
+     * @param creationTime nonnegative creation time in milliseconds
+     * @throws IllegalArgumentException if any field is invalid
+     */
+    protected Order(
+        int id,
+        int table,
+        String item,
+        String notes,
+        long creationTime)
     {
         if (id <= 0)
         {
@@ -39,10 +60,17 @@ public abstract class Order
             throw new IllegalArgumentException(
                 "Creation time must be nonnegative.");
         }
+        String cleanNotes = notes == null ? "" : notes.trim();
+        if (cleanNotes.length() > 100)
+        {
+            throw new IllegalArgumentException(
+                "Special instructions cannot exceed 100 characters.");
+        }
 
         orderId = id;
         tableNumber = table;
         itemName = item.trim();
+        instructions = cleanNotes;
         createdAtMillis = creationTime;
     }
 
@@ -68,6 +96,22 @@ public abstract class Order
     public String getItemName()
     {
         return itemName;
+    }
+
+    /**
+     * @return the special instructions, or empty string if none
+     */
+    public String getInstructions()
+    {
+        return instructions;
+    }
+
+    /**
+     * @return true if special instructions were provided
+     */
+    public boolean hasInstructions()
+    {
+        return !instructions.isEmpty();
     }
 
     /**

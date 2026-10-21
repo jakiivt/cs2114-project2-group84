@@ -34,7 +34,15 @@ public class OrderManager
     }
 
     /**
-     * Adds a food order to the back of the kitchen queue.
+     * @return the restaurant menu
+     */
+    public Menu getMenu()
+    {
+        return menu;
+    }
+
+    /**
+     * Adds a food order with no special instructions to the kitchen queue.
      *
      * @param table positive table number
      * @param item food item name
@@ -42,11 +50,31 @@ public class OrderManager
      */
     public FoodOrder addFood(int table, String item)
     {
+        return addFood(table, item, "");
+    }
+
+    /**
+     * Adds a food order with optional special instructions to the kitchen queue.
+     *
+     * @param table positive table number
+     * @param item food item name
+     * @param instructions special instructions or notes
+     * @return the new order
+     */
+    public FoodOrder addFood(
+        int table,
+        String item,
+        String instructions)
+    {
         String name = validateItem(table, item, true);
         checkIdAvailable();
 
         FoodOrder order = new FoodOrder(
-            nextOrderId, table, name, System.currentTimeMillis());
+            nextOrderId,
+            table,
+            name,
+            instructions,
+            System.currentTimeMillis());
 
         kitchen.addToEnd(order);
         advanceId();
@@ -54,7 +82,7 @@ public class OrderManager
     }
 
     /**
-     * Adds a drink order to the back of the bar queue.
+     * Adds a drink order with no special instructions to the bar queue.
      *
      * @param table positive table number
      * @param item drink item name
@@ -62,11 +90,31 @@ public class OrderManager
      */
     public DrinkOrder addDrink(int table, String item)
     {
+        return addDrink(table, item, "");
+    }
+
+    /**
+     * Adds a drink order with optional special instructions to the bar queue.
+     *
+     * @param table positive table number
+     * @param item drink item name
+     * @param instructions special instructions or notes
+     * @return the new order
+     */
+    public DrinkOrder addDrink(
+        int table,
+        String item,
+        String instructions)
+    {
         String name = validateItem(table, item, false);
         checkIdAvailable();
 
         DrinkOrder order = new DrinkOrder(
-            nextOrderId, table, name, System.currentTimeMillis());
+            nextOrderId,
+            table,
+            name,
+            instructions,
+            System.currentTimeMillis());
 
         bar.addToEnd(order);
         advanceId();
@@ -366,9 +414,15 @@ public class OrderManager
 
     private String formatOrder(Order order)
     {
-        return "ID " + order.getOrderId()
-            + " | Table " + order.getTableNumber()
-            + " | " + order.getItemName();
+        StringBuilder sb = new StringBuilder();
+        sb.append("ID ").append(order.getOrderId())
+            .append(" | Table ").append(order.getTableNumber())
+            .append(" | ").append(order.getItemName());
+        if (order.hasInstructions())
+        {
+            sb.append(" (").append(order.getInstructions()).append(")");
+        }
+        return sb.toString();
     }
 
     private String formatPending(Order order, long now)
