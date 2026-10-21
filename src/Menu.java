@@ -44,12 +44,29 @@ public class Menu
     }
 
     /**
+     * Returns the formatted food menu.
+     * @return the food menu line
+     */
+    public String displayFood()
+    {
+        return "Food: burger, fries, salad";
+    }
+
+    /**
+     * Returns the formatted drink menu.
+     * @return the drink menu line
+     */
+    public String displayDrinks()
+    {
+        return "Drinks: water, coffee, lemonade";
+    }
+
+    /**
      * Returns the formatted menu.
      * @return the food and drink menu
      */
     public String display()
     {
-        return "Food: burger, fries, salad\n"
-            + "Drinks: water, coffee, lemonade";
+        return displayFood() + "\n" + displayDrinks();
     }
 }
