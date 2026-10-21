@@ -92,6 +92,20 @@ public class MenuTest
         assertEquals(expected, menu.display());
     }
 
+    /** Checks displayFood. */
+    @Test
+    public void testDisplayFood()
+    {
+        assertEquals("Food: burger, fries, salad", menu.displayFood());
+    }
+
+    /** Checks displayDrinks. */
+    @Test
+    public void testDisplayDrinks()
+    {
+        assertEquals("Drinks: water, coffee, lemonade", menu.displayDrinks());
+    }
+
     /** Checks that repeated display calls preserve the menu. */
     @Test
     public void testDisplayDoesNotChangeMenu()

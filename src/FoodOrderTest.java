@@ -151,4 +151,48 @@ public class FoodOrderTest extends student.TestCase
 
         assertEquals(order1.hashCode(), order2.hashCode());
     }
+
+    public void testInstructionsValid()
+    {
+        FoodOrder order = new FoodOrder(
+            1, 2, "Burger", "no onions", 1000L);
+        assertEquals("no onions", order.getInstructions());
+        assertTrue(order.hasInstructions());
+    }
+
+    public void testInstructionsNullAndEmpty()
+    {
+        FoodOrder order1 = new FoodOrder(
+            1, 2, "Burger", null, 1000L);
+        assertEquals("", order1.getInstructions());
+        assertFalse(order1.hasInstructions());
+
+        FoodOrder order2 = new FoodOrder(
+            2, 2, "Burger", "   ", 1000L);
+        assertEquals("", order2.getInstructions());
+        assertFalse(order2.hasInstructions());
+
+        FoodOrder defaultOrder = new FoodOrder(
+            3, 2, "Burger", 1000L);
+        assertEquals("", defaultOrder.getInstructions());
+        assertFalse(defaultOrder.hasInstructions());
+    }
+
+    public void testInstructionsTooLong()
+    {
+        StringBuilder longNotes = new StringBuilder();
+        for (int i = 0; i < 101; i++)
+        {
+            longNotes.append("a");
+        }
+        try
+        {
+            new FoodOrder(1, 1, "Burger", longNotes.toString(), 1000L);
+            fail("Expected IllegalArgumentException for over 100 chars");
+        }
+        catch (IllegalArgumentException e)
+        {
+            assertNotNull(e);
+        }
+    }
 }
