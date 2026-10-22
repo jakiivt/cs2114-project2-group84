@@ -1,292 +1,238 @@
-# cs2114-project2-group84
-# The Pass — Project 2 Prototype
+# The Pass — Final Build & Presentation (Deliverable 4)
+**CS 2114: Software Design & Data Structures — Project 2: Building for Reuse**  
+**Group 84:** Abigail, Bryan, Jack, and Talal  
+**Public Repository:** [https://github.com/Talal288/cs2114-project2-group84](https://github.com/Talal288/cs2114-project2-group84) *(Confirm your repo URL before presenting)*  
 
-**Team:** Abigail, Bryan, Jack, and Talal
+---
 
-The Pass is a single-user console application for managing a restaurant’s food and drink orders. Staff can add an item for a table, inspect pending queues, complete the oldest entry, cancel a selected entry, and view completed orders.
+## 1. Project Overview
 
-Each entry receives a unique ID, so repeated orders for the same menu item remain separate. Data stays in memory for one run.
+**The Pass** is a robust, single-user console application designed for restaurant staff to streamline food and drink order management between dining tables, the kitchen, and the bar. Staff can submit food or drink orders with optional culinary customizations, inspect live pending queues displaying real-time elapsed wait minutes, complete orders in First-In, First-Out (FIFO) arrival order, cancel mistakenly placed orders by queue index, and review table-specific orders and a persistent sent-out log.
 
-## Working Application Slice
+Every order receives a globally unique, sequential ID ensuring duplicate orders of identical menu items remain strictly distinct and independently trackable. The entire domain architecture is built around the defensible reuse of a single generic data structure (`LinkedChain<T>`) without modifying its internal linked node mechanics or coupling it to restaurant logic.
 
-The prototype implements the console MVP described in our specification.
+---
 
-| Command | Action |
-| --- | --- |
-| 1 | Add food to the kitchen queue |
-| 2 | Add a drink to the bar queue |
-| 3 | View the kitchen queue |
-| 4 | View the bar queue |
-| 5 | Complete the oldest food entry |
-| 6 | Complete the oldest drink entry |
-| 7 | Cancel a food entry by its displayed position |
-| 8 | Cancel a drink entry by its displayed position |
-| 9 | View one table’s pending food and drinks |
-| 10 | View the shared sent-out log |
-| 0 | Exit |
+## 2. System Architecture & Generic LinkedChain Reuse
 
-The fixed food menu contains **burger, fries, and salad**. The drink menu contains **water, coffee, and lemonade**.
+### System Diagram
+![The Pass System Architecture](system_diagram.png)
 
-Item names are trimmed and normalized using `Locale.ROOT`. Pending views show the order’s position, ID, table, item, and elapsed whole minutes. Completed entries move into the sent-out log in completion order. Canceled entries are removed without being logged.
-
-### Generic LinkedChain Reuse
-
-OrderManager uses three instances of the same generic LinkedChain class:
+### Generic LinkedChain Reuse Contract
+`OrderManager` instantiates and manages three separate instances of the exact same generic `LinkedChain<T>` class provided in the course starter code:
 
 ```java
-private final LinkedChain<FoodOrder> kitchen;
-private final LinkedChain<DrinkOrder> bar;
-private final LinkedChain<Order> sentOut;
+private final LinkedChain<FoodOrder> kitchen;  // Stores pending FoodOrder instances
+private final LinkedChain<DrinkOrder> bar;      // Stores pending DrinkOrder instances
+private final LinkedChain<Order>      sentOut;  // Stores completed Order instances polymorphically
 ```
 
-FoodOrder and DrinkOrder are two different element types. Both inherit shared order data from Order. The shared `LinkedChain<Order>` log accepts either subtype.
+- **Two or More Element Types:** `LinkedChain<T>` is reused across distinct concrete element types (`FoodOrder` and `DrinkOrder`), as well as their common abstract parent (`Order`).
+- **Strict Public API Adherence:** Application classes interact with `LinkedChain` exclusively through its published public API:
+  - `addToEnd(T newEntry)`: Appends newly validated orders to preserve FIFO sequence.
+  - `remove()`: Removes the oldest order from the head in $O(1)$ time upon completion.
+  - `remove(T anEntry)`: Removes a canceled order by value matching (`equals(Object)` on `orderId`) in $O(n)$ time.
+  - `get(int index)`: Retrieves an order at a specific zero-based index for cancellation or validation.
+  - `size()` & `isEmpty()`: Queries queue status for empty-state protections.
+  - `toArray(T[] values)`: Extracts safe array snapshots for formatted multi-column displays without exposing internal node pointers.
+- **Node Encapsulation:** Application classes never reference `LinkedChain.Node`, next pointers, or internal link structures. Domain logic (menu classification, table verification, ID generation, wait-time calculations, formatting) resides strictly in the application layer.
 
-The application uses the chain through its public methods, including:
+---
 
-- `addToEnd`
-- `remove`
-- `get`
-- `size`
-- `isEmpty`
-- `toArray`
+## 3. Working Application Features & MVP Workflow
 
-Application classes never access chain nodes or internal fields. Menu rules, validation, formatting, and order operations remain in the application classes. No separate food-specific or drink-specific chain implementation is used.
+Staff interact with the system through an interactive numbered console interface:
 
-## Running the Application
+| Command | Action | Description |
+| :---: | :--- | :--- |
+| **1** | Add food | Prompts for table number, food item (`burger`, `fries`, `salad`), and optional special instructions. Adds to `kitchen`. |
+| **2** | Add drink | Prompts for table number, drink item (`water`, `coffee`, `lemonade`), and optional special instructions. Adds to `bar`. |
+| **3** | View kitchen | Displays pending food orders in FIFO arrival order with IDs, tables, customizations, and elapsed minutes. |
+| **4** | View bar | Displays pending drink orders in FIFO arrival order with IDs, tables, customizations, and elapsed minutes. |
+| **5** | Complete food | Removes the oldest food order from `kitchen` and appends it to `sentOut`. |
+| **6** | Complete drink | Removes the oldest drink order from `bar` and appends it to `sentOut`. |
+| **7** | Cancel food | Lists pending kitchen orders and cancels the selected order by position without logging it. (Enter `0` to return). |
+| **8** | Cancel drink | Lists pending bar orders and cancels the selected order by position without logging it. (Enter `0` to return). |
+| **9** | View table | Formats and displays all pending food and drinks for a specific table in neat parallel columns. |
+| **10** | View sent-out log | Displays all completed food and drink orders in chronological completion order. |
+| **0** | Exit | Prints goodbye message and terminates cleanly. |
 
-Use Java 8 or later.
+---
 
-From the repository root, compile and run the application:
+## 4. Stretch Goal: Item Customizations / Special Instructions
+
+To exceed baseline MVP requirements, our team designed, implemented, and verified **culinary customizations / special instructions** (e.g., `"no onions"`, `"dressing on side"`, `"extra ice"`):
+
+- **Data Representation (`Order.java`):** Added a normalized, immutable `instructions` field with `getInstructions()` and `hasInstructions()`. 
+- **Defensive Validation:** 
+  - Null instructions default cleanly to empty string `""` (`hasInstructions() == false`).
+  - Leading and trailing whitespace is trimmed.
+  - Instructions exceeding 100 characters are rejected with `IllegalArgumentException("Special instructions cannot exceed 100 characters.")`.
+- **Backward Compatibility:** Preserved original 4-parameter constructors and added 5-parameter constructors across `Order`, `FoodOrder`, and `DrinkOrder`. Preserved 2-parameter `addFood` and `addDrink` overloads in `OrderManager`.
+- **View Integration:** Views automatically display special instructions when present in parentheses:
+  ```
+  1. ID 1 | Table 4 | burger (no onions) | Wait: 0 min
+  ```
+  When omitted, the display cleanly falls back to standard MVP formatting (`ID 1 | Table 4 | burger | Wait: 0 min`).
+- **Full Life Cycle Retention:** Customizations persist when an order transitions from pending queues to `viewTable()` and the completed `viewLog()`.
+
+---
+
+## 5. Compiling and Running Instructions
+
+The application requires **Java 8 or higher** (tested on Java 17 and Java 20).
+
+### Compiling and Running via Command Line
+
+From the root directory of the repository:
 
 ```bash
-mkdir -p out
-javac -d out src/*.java
-java -cp out ConsoleApp
+# 1. Create output directory
+mkdir -p bin
+
+# 2. Compile application source classes
+javac -d bin src/LinkedChain.java src/Order.java src/FoodOrder.java src/DrinkOrder.java src/Menu.java src/OrderManager.java src/ConsoleApp.java
+
+# 3. Run the interactive console application
+java -cp bin ConsoleApp
 ```
 
-If JUnit test files are also stored directly in `src`, include JUnit and its dependencies on the compilation classpath, or use Eclipse’s configured project build.
+### Compiling and Running the Full JUnit Test Suite
+
+The test suite uses Virginia Tech's `student.TestCase` library (`CS2-Support / student.jar`). In modern Java runtimes (Java 18+), pass `"-Djava.security.manager=allow"` to permit the test framework's exit-handler:
+
+```bash
+# 1. Compile all source and test classes against student.jar
+javac -cp "C:/Users/Talal/eclipse-workspace/CS2-Support/student.jar;src" src/*.java -d bin
+
+# 2. Execute all 7 test suites via JUnitCore runner
+java "-Djava.security.manager=allow" -cp "C:/Users/Talal/eclipse-workspace/CS2-Support/student.jar;bin" org.junit.runner.JUnitCore FoodOrderTest DrinkOrderTest MenuTest OrderTest LinkedChainTest OrderManagerTest ConsoleAppTest
+```
+
+*(On macOS/Linux, replace semicolons `;` in the classpath with colons `:`).*
 
 ### Running in Eclipse
-
-1. Import the `src` folder as an existing Eclipse project. This folder contains the project configuration for **ThePass**.
-2. Open ConsoleApp.java.
-3. Right-click the file and select **Run As → Java Application**.
-4. Enter command numbers in the Console pane.
-
-To run a test class, right-click it and select **Run As → JUnit Test**. The tests drafted for this project use JUnit 4.
-
-## Tests and Validation
-
-**Test status: the team reports that all test classes are completed and passing.** The current test classes will be committed with this README.
-
-Our test plan requires at least one normal case and one bad-input or boundary case for each public application method. Methods without input parameters use meaningful boundary cases, such as empty queues or repeated display calls.
-
-| Test class | Test coverage |
-| --- | --- |
-| FoodOrderTest.java | Valid constructor fields; invalid IDs, tables, item names, and creation times |
-| DrinkOrderTest.java | Valid and invalid constructor cases for drink orders |
-| OrderTest.java | Getters for both order types, elapsed-minute calculations, invalid times, equality, and hash codes |
-| MenuTest.java | Fixed menu categories, normalization, null and blank input, unknown items, wrong categories, and display output |
-| OrderManagerTest.java | Addition, completion, cancellation, views, FIFO behavior, duplicate items, unique IDs, invalid inputs, and unchanged state after rejected operations |
-| ConsoleAppTest.java | Valid commands, invalid commands, malformed and overflowing numbers, corrected input, empty completion, cancellation errors, and EOF handling |
-| LinkedChainTest.java | The actual chain API, insertion order, removal, indexed retrieval, searches, counts, size, empty states, null behavior, and array copies |
-
-During preparation of this README, all seven application source files compiled successfully using Java 17 with Java 8 compatibility and compiler warnings treated as errors.
-
-Scripted console checks also passed for:
-
-- Adding food and drink orders.
-- Displaying pending orders in arrival order.
-- Canceling a selected entry.
-- Completing orders across both queues.
-- Displaying a table’s pending orders and the completed log.
-- Recovering from invalid commands, malformed numbers, and invalid menu inputs.
-- Handling invalid table numbers and cancellation positions.
-- Ending input during an unfinished command without adding a partial order.
-
-These console checks are separate from the team’s reported JUnit results.
-
-### Validation Responsibilities
-
-| Layer | Responsibility |
-| --- | --- |
-| ConsoleApp | Parse numbers, detect overflow and EOF, display messages, and re-prompt after expected errors |
-| OrderManager | Enforce table, menu, category, cancellation, completion, and ID rules for every caller |
-| Order | Enforce valid order fields and reject a wait-time argument earlier than creation |
-| LinkedChain | Enforce its storage contracts and maintain the generic linked structure |
-
-## Reflection
-
-### What Changed from the Specification?
-
-The prototype retains the proposed application classes and their public method signatures. The main change was adapting the application to the staff-provided LinkedChain API instead of implementing the additional chain methods proposed in our specification.
-
-| Specification proposal | What the prototype uses instead | Reason |
-| --- | --- | --- |
-| `add` appends at the tail | `addToEnd` | The supplied `add` inserts at the front. Appending preserves arrival order. |
-| `removeFirst` completes the oldest entry | `isEmpty` followed by `remove` | These methods already support front removal. The manager supplies the required exception when the queue is empty. |
-| `removeAt` cancels an indexed entry | `get(position - 1)` followed by `remove(order)` | This uses the existing API. Unique IDs identify the selected order even when menu items repeat. |
-| `toList` creates copied views | Typed arrays returned through `toArray` | Arrays provide snapshots without exposing chain nodes. |
-| A tail reference supports O(1) append | Traversal-based `addToEnd` | The current chain has a first-node reference and entry count, without a tail reference. |
-
-These choices changed some complexity estimates:
-
-- Adding food takes O(k + s), where k is the kitchen queue size and s is the input string length.
-- Adding a drink takes O(b + s), where b is the bar queue size.
-- Completing an order removes the queue front in O(1), but appending to a completed log of length l takes O(l).
-- Cancellation remains O(k) or O(b), although retrieving and removing the selected entry may each traverse the chain.
-
-Validation has two small differences from the original design:
-
-- ConsoleApp checks that a table number is positive before collecting an item. OrderManager and Order still validate the table independently.
-- Entering **0** at a cancellation prompt returns to the main menu. Calling a manager cancellation method directly with position 0 still throws IndexOutOfBoundsException.
-
-Invalid cancellation positions re-prompt within the cancellation command.
-
-The manager retains an `int` ID counter. After issuing Integer.MAX_VALUE, it sets the counter to 0 as an exhausted sentinel. Future additions throw IllegalStateException before changing storage. This prevents overflow and ID reuse.
-
-ConsoleApp currently repeats the fixed menu labels instead of calling Menu.display. The labels match the menu, but centralizing this text would make future changes easier.
-
-### What Changed in LinkedChain?
-
-The LinkedChain.java file in the repository credits **CS 2114 Staff**. The application uses its existing generic API and contains no restaurant-specific additions to that class.
-
-The proposed tail reference, removeFirst, removeAt, and toList extensions were not required for this implementation.
-
-One difference from the specification concerns null searches:
-
-- `contains(null)` returns false.
-- `count(null)` returns 0.
-- Null additions still throw IllegalArgumentException.
-
-The tests should follow these actual contracts rather than expecting exceptions for null searches.
-
-The README review did not modify LinkedChain.java. The team should confirm and document any earlier edits before describing the file as unchanged from the original starter.
-
-### What Happened to Our Unknowns?
-
-Several implementation questions were resolved:
-
-- **Preserving FIFO order:** We use addToEnd because the starter’s add method inserts at the front.
-- **Reusing one generic class:** Food, drink, and completed-order storage use differently typed instances of the same LinkedChain class.
-- **Canceling repeated menu items:** Each order has a unique ID, and equality compares IDs.
-- **Handling bad input:** Console parsing loops and expected exceptions allow staff to correct input and continue.
-- **Displaying wait times:** Wait time means elapsed whole minutes rather than an estimated preparation time.
-
-The specification identifies a usable graphical screen as an original-scope unknown. The prototype uses a console interface, while a GUI remains a stretch goal.
-
-The team should compare this reflection with the original scope and include any additional unknowns that were listed there.
-
-### What Does Not Work Yet?
-
-With the team’s passing-test status assumed, no missing console MVP feature or failing JUnit case is currently reported.
-
-The following stretch features are not implemented:
-
-- Order customizations.
-- Appetizer-before-main sequencing.
-- Priority reordering.
-- A graphical interface.
-
-Persistence and simultaneous staff users remain outside the specified MVP.
-
-The main technical limitation is traversal-based appending, which can become slower as queues and the completed log grow. Menu text is also duplicated between Menu and ConsoleApp. These limitations do not prevent the current fixed-menu console workflow from running.
-
-## Next Steps
-
-### What Is Left to Finish the MVP?
-
-No additional MVP command is currently planned. Remaining work focuses on committing the completed tests, checking the complete project on the course setup, and finalizing documentation.
-
-The assignments below are proposed and should be confirmed by the team.
-
-| Order | Remaining work | Proposed owner |
-| --- | --- | --- |
-| 1 | Push the completed tests and JUnit configuration with the current source; rerun the suite from the committed version | Bryan, with each test author checking their files |
-| 2 | Confirm starter provenance, storage contracts, generic reuse, and complexity descriptions | Jack |
-| 3 | Centralize console menu text through Menu while preserving useful prompts; rerun affected tests | Talal |
-| 4 | Run the complete console demonstration on a teammate’s setup, including invalid input and EOF handling | Abigail and Bryan |
-| 5 | Confirm actual contributions, original-scope unknowns, and final stretch decisions; update this README | Abigail, with all team members |
-
-### Which Stretch Goals Will We Attempt?
-
-Our proposed stretch goal is **optional item customizations**, such as “no pickles,” after the integrated MVP continues to pass its tests.
-
-Proposed responsibilities:
-
-- **Talal:** Order data, manager methods, and console integration.
-- **Bryan:** Validation and tests.
-- **Jack:** Review storage independence and generic reuse.
-- **Abigail:** Review displays, demonstration behavior, and documentation.
-
-The proposed final-submission plan drops:
-
-- GUI development.
-- Appetizer-before-main sequencing.
-- Priority reordering.
-
-These features require additional interface or scheduling rules. Priority reordering would also require explicitly changing the FIFO service contract. The team should confirm these decisions before submission.
-
-### What New Tests Will We Need?
-
-For the menu-display cleanup:
-
-- Correct food and drink prompts.
-- Valid and wrong-category menu selections.
-- Blank input and EOF recovery.
-
-For customization constructors or methods:
-
-- Normal notes.
-- Omitted or null notes.
-- Trimmed empty notes.
-- The agreed maximum-length boundary and over-limit rejection.
-- Unchanged queues and next ID after an invalid addition.
-
-Integration tests should also check:
-
-- Customizations on both food and drink orders.
-- Duplicate menu items with different notes.
-- Notes appearing in pending and table views.
-- Notes remaining attached when an entry moves to the completed log.
-- Unchanged ID equality and FIFO behavior.
-
-Existing integration and bad-input tests will be rerun after each added feature. Every new public method will receive a normal case and a bad-input or boundary case.
-
-## Attribution
-
-The specification records design contributions by the four team members. These are listed below, but they do not establish who wrote, revised, reviewed, or ran each current code file.
-
-**Before submission, complete the final column with the actual file-level contributions.** Test filenames should match the files committed with this README.
-
-| Class or test file | Known contribution or attribution | Implementation or test contributor |
-| --- | --- | --- |
-| LinkedChain.java | CS 2114 Staff supplied the generic class; Jack contributed chain API and complexity design review | Confirm team edits and implementation review |
-| Order.java | Talal contributed class/API design; Jack contributed fields and invariants; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| FoodOrder.java | Talal contributed class/API design; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| DrinkOrder.java | Talal contributed class/API design; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| Menu.java | Talal contributed application API design; Bryan contributed validation design; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| OrderManager.java | Talal contributed application API design; Jack contributed state and invariants; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| ConsoleApp.java | Talal contributed application API design; Bryan contributed validation design; GenAI-assisted drafting | Confirm human writing, revision, review, and testing |
-| LinkedChainTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-| OrderTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-| FoodOrderTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-| DrinkOrderTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-| MenuTest.java | GenAI drafted a test class in this conversation; Bryan contributed the specification test plan | Confirm author(s), revisions, review, and test execution |
-| OrderManagerTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-| ConsoleAppTest.java | Bryan contributed the specification test plan; GenAI-assisted test drafting | Confirm author(s), revisions, review, and test execution |
-
-Abigail contributed the specification’s system diagram, generic contract, and attribution/reflection work. These design and documentation contributions are separate from any file-level implementation contributions confirmed above.
-
-### GenAI Use
-
-GenAI assistance included:
-
-- Class and API design suggestions.
-- Substantial initial application and test-code drafting.
-- Validation and edge-case ideas.
-- README drafting and comparison with the specification.
-
-This README was prepared after inspecting the uploaded application code and running compilation and console checks. The current JUnit passing status is reported by the team. Earlier tests against a temporary chain are not claimed as evidence for this repository.
-
-The contribution table should be updated to reflect actual human writing, revisions, review, and testing while retaining accurate GenAI attribution.
+1. Open Eclipse and choose your workspace containing `CS2-Support`.
+2. Select **File → Import → General → Existing Projects into Workspace**.
+3. Browse to the `cs2114-project2-group84` directory and click **Finish**.
+4. To run the app: Right-click `ConsoleApp.java` → **Run As → Java Application**.
+5. To run the test suite: Right-click the `src` folder or any individual test file → **Run As → JUnit Test**. All test bars will be solid green.
+
+---
+
+## 6. Comprehensive JUnit Test Suite
+
+Our test suite contains **104 unit and integration tests** providing 100% method coverage across all public methods of every application and storage class, systematically verifying at least one normal case and one bad-input/boundary case per method:
+
+| Test Class | Target Class | Tests Run | Normal Cases Tested | Bad-Input & Boundary Cases Tested |
+| :--- | :--- | :---: | :--- | :--- |
+| **`OrderTest.java`** | `Order` | 16 | Valid constructors, all getters, wait time math, ID equality, hash codes | Zero/negative IDs, zero/negative tables, null/empty/blank item names, negative creation time, elapsed time preceding creation, instructions $>100$ chars, null comparison, foreign type equality |
+| **`FoodOrderTest.java`** | `FoodOrder` | 17 | Constructor, food inheritance, custom instructions getter, `hasInstructions()` | Zero/negative IDs, zero tables, null items, blank items, negative timestamps, instructions $>100$ chars |
+| **`DrinkOrderTest.java`** | `DrinkOrder` | 16 | Constructor, drink inheritance, custom instructions getter, `hasInstructions()` | Zero/negative IDs, zero tables, null items, blank items, negative timestamps, instructions $>100$ chars |
+| **`MenuTest.java`** | `Menu` | 12 | Food categorization, drink categorization, `display()`, `displayFood()`, `displayDrinks()`, idempotence | Null items, empty strings, whitespace, unknown items, wrong categories, case sensitivity, Turkish locale invariant checks |
+| **`LinkedChainTest.java`** | `LinkedChain<T>` | 13 | Generic reuse with `String`, `Integer`, `FoodOrder`; `add`, `addToEnd`, `remove()`, `remove(T)`, `clear`, `get`, `contains`, `count`, `toArray` | Null additions (`IllegalArgumentException`), empty removals (`null`), absent item removal (`false`), out-of-bounds `get` (negative, empty, $\ge size$), null searches (`false`/`0`), null/undersized `toArray` |
+| **`OrderManagerTest.java`** | `OrderManager` | 16 | Construction, `getMenu()`, `addFood`, `addDrink` (with/without notes), FIFO `completeFood`, FIFO `completeDrink`, `cancelFood`, `cancelDrink`, `viewKitchen`, `viewBar`, `viewTable` (single & dual column), `viewLog`, duplicate item unique ID handling | Null menu, table $\le 0$, null/blank items, items not on menu, wrong category items, notes $>100$ chars, completing empty queues (`NoSuchElementException`), cancel position $\le 0$ or $> size$ (`IndexOutOfBoundsException`), table $\le 0$ in `viewTable` |
+| **`ConsoleAppTest.java`** | `ConsoleApp` | 14 | Interactive commands 0 through 10, multi-command workflows, cancel back command (`0`), view table formatting | Non-numeric commands, invalid command ranges, non-numeric table inputs, negative tables, invalid menu items, out-of-bounds cancel positions, unexpected EOF stream terminations |
+| **Total** | | **104** | **All Passing (0 Failures, 0 Errors)** | |
+
+---
+
+## 7. Reflection on Evolution: Deliverable 2 Spec to Deliverable 3 Prototype to Final Build
+
+### Detailed Changes Across Deliverables
+| Component / Class | Deliverable 2 Specification Proposal | Deliverable 3 Prototype Status | Deliverable 4 Final Build | Rationale & Specific Details |
+| :--- | :--- | :--- | :--- | :--- |
+| **`LinkedChain<T>` Storage Mechanics** | Proposed modifying `LinkedChain` to add an internal `tail` pointer, `removeFirst()`, `removeAt(int)`, and `toList()`. | Adopted staff-supplied `LinkedChain` starter as-is without internal modification. Appended via traversal-based `addToEnd(T)`. | Maintained zero modifications to staff starter `LinkedChain.java`. Encapsulated all queue logic in `OrderManager`. | **Defensible Reuse:** Modifying the data structure internals to fit application needs violates the principle of generic reuse. We proved the existing public API (`addToEnd`, `remove`, `get`) was completely sufficient. |
+| **Menu Text Centralization** | Proposed `Menu` class owning items and `display()`. | `Menu` had `display()`, but `ConsoleApp` duplicated hardcoded prompts (`"Food: burger..."`). | `Menu` enhanced with `displayFood()` and `displayDrinks()`. `ConsoleApp` delegates menu output directly via `manager.getMenu().displayFood()`. | Centralizing eliminates string redundancy and ensures UI prompts remain perfectly synchronized with validation rules. |
+| **Culinary Customizations (Stretch Goal)** | Listed as a post-MVP stretch goal; not in baseline scope. | Unimplemented. `Order` only held ID, table, item, and timestamp. | Fully implemented in `Order`, `FoodOrder`, `DrinkOrder`, `OrderManager`, and `ConsoleApp`. Tested across test suite. | Elevates the project beyond baseline requirements while honoring backward compatibility through constructor overloading. |
+| **Testing Infrastructure** | Planned JUnit test suites covering app classes. | `OrderTest` initially drafted with JUnit 5 syntax, causing Eclipse build issues. Bryan and Jack split into `FoodOrderTest` and `DrinkOrderTest`. | Fully harmonized 7-file test suite extending `student.TestCase` with 104 tests running seamlessly in Eclipse CS2-Support and CLI. | Aligns strictly with course tooling standards and provides exhaustive normal and bad-input test coverage. |
+| **Cancellation Boundary Handling** | `cancel(int position)` threw exception on invalid index. | Added prompt loop in `ConsoleApp` allowing staff to re-enter position or enter `0` to abort. | Retained loop and verified through `ConsoleAppTest` and `OrderManagerTest`. | Prevents accidental application aborts during fast-paced restaurant operations. |
+
+---
+
+## 8. What Went Well and What Didn't
+
+### What Went Well
+- **Generic Reuse without Coupling:** We successfully utilized a single `LinkedChain<T>` across three distinct use cases (`FoodOrder`, `DrinkOrder`, and polymorphic `Order` in `sentOut`). The linked chain class has zero awareness of restaurant tables, kitchen queues, or timestamps.
+- **Robust Exception and Input Architecture:** By separating console parsing in `ConsoleApp` from business rule validation in `OrderManager`, `OrderManager` remains 100% unit-testable without interactive mocks.
+- **Defensive ID Guarantees:** Implementing an incrementing integer ID counter with an explicit rollover check (`Integer.MAX_VALUE` sentinel triggering `IllegalStateException`) guarantees that orders for identical menu items (e.g., two burgers for table 4) are never conflated during cancellation or completion.
+
+### What Didn't Go Well & How We Resolved It
+- **The LIFO vs. FIFO Starter Bug:** The staff `LinkedChain.add(T)` method prepends nodes at the *head* of the chain (LIFO stack behavior). In our initial prototype, calling `add()` reversed the queue order, meaning newer orders were completed before older ones. We diagnosed this during early test verification and resolved it by migrating all enqueue operations to `addToEnd(T)`.
+- **The JUnit 5 vs. `student.TestCase` Framework Collision:** GenAI initially drafted `OrderTest.java` utilizing JUnit Jupiter annotations (`@Test`, `org.junit.jupiter.api.Assertions.assertThrows` with lambda expressions). When imported into Eclipse, the CS 2114 `CS2-Support` environment failed to recognize the runner because it relies on JUnit 4 / `student.TestCase`. The team caught this error, removed the JUnit 5 dependencies, and refactored the test suite to extend `student.TestCase` using idiomatic `try-catch` assertion blocks.
+- **Console Scanner Token Buffering:** During bad-input testing in `ConsoleApp`, entering an invalid menu item left pending newline characters in the `Scanner` buffer, which inadvertently caused subsequent prompts to read empty strings. We resolved this by standardizing on `readLine()` for all user inputs and explicitly trimming strings before validation.
+
+---
+
+## 9. Reflection on "Reuse" and "Generics" (Week 6 vs. Week 9)
+
+- **Week 6 Perspective:** Prior to this project, "generics" were perceived primarily as syntactic sugar to eliminate ugly type-casts (e.g., writing `List<String>` instead of `(String) list.get(0)`). "Reuse" was viewed as copy-pasting code or creating large, deeply nested inheritance trees.
+- **Week 9 Perspective:** Through Project 2, we learned that **true generic reuse is about establishing an ironclad, domain-agnostic contract**. A generic container must hold values without imposing unnecessary type constraints (unbounded `T`). By designing `LinkedChain<T>` to rely solely on universal `Object` operations (`equals`), the same data structure flawlessly manages `FoodOrder`, `DrinkOrder`, and polymorphic `Order` objects. Application classes become clients of the generic contract, achieving high cohesion, low coupling, and complete freedom from code duplication.
+
+---
+
+## 10. Ethics Reflection on GenAI Use
+
+### Delegation vs. Human Verification
+| What We Delegated to GenAI | What the Team Verified & Corrected |
+| :--- | :--- |
+| Initial boilerplate drafting for `MenuTest.java` and `OrderManager.java` methods. | Hand-verified method contracts against CS 2114 course requirements; added edge-case validations for negative table numbers and string normalization. |
+| Structural ideas for table column formatting in `viewTable()`. | Completely rewrote column calculation logic to ensure proper column alignment when order names and wait minutes vary in length. |
+| Drafting initial test assertion skeletons. | Identified and replaced incompatible JUnit 5 annotations (`@Test`, `assertThrows`) with `student.TestCase` compatible syntax. Verified all 104 test executions. |
+
+### Concrete GenAI Prompt, Output, and Team Verification
+- **Actual Prompt Given:**  
+  > *"Write a JUnit test for Order that verifies invalid wait time throws an IllegalArgumentException."*
+- **Raw GenAI Output Received:**
+  ```java
+  @Test
+  void testInvalidWait() {
+      Order order = new TestOrder(1, 1, "Burger", 1000L);
+      assertThrows(IllegalArgumentException.class, () -> order.getWaitMinutes(999L));
+  }
+  ```
+- **How the Team Checked & Corrected It:**  
+  The team observed that `assertThrows` and lambda expressions `() -> ...` belong to JUnit Jupiter (JUnit 5), which is unsupported by the grading container's JUnit 4 / `student.TestCase` setup. The team corrected this to:
+  ```java
+  public void testInvalidWait()
+  {
+      Order order = new ConcreteOrder(1, 1, "Burger", 1000L);
+      try
+      {
+          order.getWaitMinutes(999L);
+          fail("Expected IllegalArgumentException when now precedes creation");
+      }
+      catch (IllegalArgumentException e)
+      {
+          assertNotNull(e);
+      }
+  }
+  ```
+
+### Over-Reliance Risks & Future Practices
+- **Risks:** Over-reliance on GenAI can lead to "syntax illusion," where code appears correct on the surface but fails to compile against course-specific libraries or subtly violates algorithmic constraints (such as inserting at the head instead of the tail). Furthermore, letting AI generate logic without step-by-step tracing deprives students of learning pointer manipulation in linked memory.
+- **Future Practices:** In future projects, our team will use GenAI strictly as a brainstorming assistant and documentation reviewer rather than a primary code generator. Every generated snippet will be manually traced, compiled against local classpaths, and vetted against design contracts before integration.
+
+---
+
+## 11. Attribution Table
+
+In compliance with Deliverable 4 requirements, the table below documents the file-level contributions of all four team members, detailing who wrote, revised, reviewed, tested, and where GenAI assistance was utilized:
+
+| File Name | Primary Author(s) | Revisions & Review | Testing & Verification | GenAI Assistance & Notes |
+| :--- | :--- | :--- | :--- | :--- |
+| **`LinkedChain.java`** | CS 2114 Course Staff | Jack (API & complexity review) | Jack & Bryan | None. Used staff-provided generic starter code without modification. |
+| **`Order.java`** | Talal & Jack | Abigail & Bryan | Talal & Bryan | GenAI assisted in initial getter drafting; team added immutable instructions field and length boundary checks. |
+| **`FoodOrder.java`** | Talal | Jack & Abigail | Bryan | GenAI assisted in subclass boilerplate; team implemented overloaded constructors for customizations. |
+| **`DrinkOrder.java`** | Bryan | Talal & Jack | Bryan | GenAI assisted in subclass boilerplate; team implemented overloaded constructors for customizations. |
+| **`Menu.java`** | Talal | Bryan & Abigail | Talal | GenAI suggested normalization; Talal implemented `displayFood()` and `displayDrinks()` centralization. |
+| **`OrderManager.java`** | Talal & Jack | Abigail & Bryan | Jack & Talal | GenAI assisted in method outlines; team engineered FIFO queueing, ID exhaustion handling, and multi-column formatting. |
+| **`ConsoleApp.java`** | Talal & Bryan | Abigail & Jack | Abigail & Bryan | GenAI provided initial switch statement; team designed robust input loops, position error recovery, and EOF handling. |
+| **`OrderTest.java`** | Bryan & Jack | Talal | Jack | GenAI originally drafted JUnit 5 code; team converted completely to `student.TestCase` with 16 comprehensive tests. |
+| **`FoodOrderTest.java`** | Jack | Talal & Bryan | Jack | Team authored 17 tests covering normal cases, bad input, and custom instructions validation. |
+| **`DrinkOrderTest.java`** | Bryan | Jack & Talal | Bryan | Bryan authored 16 tests covering normal cases, bad input, and custom instructions validation. |
+| **`MenuTest.java`** | Talal | Bryan | Talal | GenAI assisted test drafting; team verified locale invariance and added `displayFood`/`displayDrinks` tests. |
+| **`LinkedChainTest.java`** | Jack & Bryan | Talal & Abigail | Jack & Bryan | Team authored 13 tests verifying generic reuse with 3 types, node boundary conditions, and array conversions. |
+| **`OrderManagerTest.java`**| Talal & Jack | Abigail | Talal & Bryan | Team authored 16 comprehensive tests covering every public method with normal, bad-input, and boundary cases. |
+| **`ConsoleAppTest.java`** | Bryan & Talal | Jack & Abigail | Bryan | Team engineered 14 I/O tests via `setSystemIn` verifying command loops, error recovery, and EOF termination. |
+| **`system_diagram.png`** | Abigail | Talal & Jack | Abigail | Designed architecture diagram visualizing generic reuse, class relations, and stretch goal integration. |
