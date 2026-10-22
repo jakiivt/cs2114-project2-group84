@@ -155,10 +155,12 @@ public class ConsoleApp
             if (item == null)
             {
                 return false;
+                
             }
 
             String notes = readLine(
                 "Enter special instructions (optional, press Enter to skip): ");
+            
 
             if (notes == null)
             {
