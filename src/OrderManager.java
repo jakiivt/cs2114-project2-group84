@@ -66,6 +66,11 @@ public class OrderManager
         String item,
         String instructions)
     {
+        if (!menu.isFood(item)) {
+            
+            throw new IllegalArgumentException("Item is not on the menu!");
+        }
+        
         String name = validateItem(table, item, true);
         checkIdAvailable();
 
